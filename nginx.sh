@@ -131,7 +131,17 @@ EOF
 
     echo_msg "Enabling Nginx configuration..."
     sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
-    sudo nginx -t  # Test Nginx configuration
+
+    echo_msg "Testing Nginx configuration..."
+    sudo nginx -t
+
+    # Start Nginx if it's not running
+    if ! systemctl is-active --quiet nginx; then
+        echo_msg "Starting Nginx service..."
+        sudo systemctl start nginx
+    fi
+
+    echo_msg "Reloading Nginx service..."
     sudo systemctl reload nginx
 }
 
