@@ -179,15 +179,30 @@ echo_msg "Setting ownership for the web directories..."
 sudo chown -R www-data:www-data /var/www/$DOMAIN
 
 # Install Composer
-read -p "Do you want to install Composer? (y/n): " INSTALL_COMPOSER
+read -p "Do you want to install Composer? (y/n, default: y): " INSTALL_COMPOSER
+INSTALL_COMPOSER=${INSTALL_COMPOSER:-y}  # Default to 'y' if no input
 if [[ "$INSTALL_COMPOSER" =~ ^[yY]$ ]]; then
     echo_msg "Installing Composer..."
+    
+    # Download Composer installer
     php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-    php -r "if (hash_file('sha384', 'composer-setup.php') === 'c3f3cbe12c3c5f5cf2c4b39a37785c9ec12e1670d46d4a7e9e27ef85d5eb5459ee0b68cf421d9b54df5be8dd67a9188d') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+    
+    # Verify installer SHA-384
+    expected_hash="$(curl -s https://composer.github.io/installer.sha384sum | awk '{print $1}')"
+    actual_hash="$(php -r "echo hash_file('sha384', 'composer-setup.php');")"
+
+    if [ "$expected_hash" != "$actual_hash" ]; then
+        echo_error "Installer corrupt"
+        rm composer-setup.php
+        exit 1
+    fi
+
+    # Run the installer
     php composer-setup.php
     php -r "unlink('composer-setup.php');"
     sudo mv composer.phar /usr/local/bin/composer
     sudo chmod +x /usr/local/bin/composer
 fi
+
 
 echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
