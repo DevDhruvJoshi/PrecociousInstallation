@@ -78,6 +78,19 @@ function detect_package_manager() {
     fi
 }
 
+# Function to install Nginx
+function install_nginx() {
+    if ! command -v nginx &> /dev/null; then
+        echo_msg "Installing Nginx..."
+        sudo $PACKAGE_MANAGER install nginx -y
+        sudo systemctl start nginx
+        sudo systemctl enable nginx
+        sudo ufw allow 'Nginx Full'
+    else
+        echo_msg "Nginx is already installed."
+    fi
+}
+
 # Function to install Apache
 function install_apache() {
     echo_msg "Installing Apache..."
@@ -93,34 +106,28 @@ function install_apache() {
     fi
 }
 
-# Function to install Nginx
-function install_nginx() {
-    echo_msg "Installing Nginx..."
-    if ! command -v nginx &> /dev/null; then
-        sudo $PACKAGE_MANAGER install nginx -y
-        sudo systemctl start nginx
-        sudo systemctl enable nginx
-        sudo ufw allow 'Nginx Full'
+# Function to check and stop the conflicting server
+function check_and_stop_server() {
+    local server_name="$1"
+    if systemctl is-active --quiet "$server_name"; then
+        echo_msg "$server_name is currently running."
+        read -p "Do you want to stop $server_name to free up port 80? (y/n, default: y): " STOP_SERVER
+        STOP_SERVER=${STOP_SERVER:-y}
+        
+        if [[ "$STOP_SERVER" =~ ^[yY]$ ]]; then
+            echo_msg "Stopping $server_name service..."
+            sudo systemctl stop "$server_name"
+            echo_msg "$server_name service stopped."
+        else
+            echo_error "$server_name must be stopped to run the other server on port 80."
+            exit 1
+        fi
     else
-        echo_msg "Nginx is already installed."
+        echo_msg "$server_name is not running."
     fi
 }
 
-# Function to install PHP and its extensions
-function install_php() {
-    echo_msg "Installing PHP and extensions..."
-    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
-        sudo add-apt-repository ppa:ondrej/php -y
-        sudo apt update -y
-        sudo apt install -y php libapache2-mod-php php-mysql php-fpm php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
-        sudo a2enmod php8.3
-        sudo a2enconf php8.3-fpm
-    else
-        sudo yum install php php-mysqlnd php-fpm php-curl php-gd php-mbstring php-xml php-zip php-bcmath -y
-    fi
-}
-
-# Function to create web directory
+# Function to create directories for the website
 function create_web_directory() {
     if [ ! -d "/var/www/$DOMAIN" ]; then
         echo_msg "Creating directory /var/www/$DOMAIN..."
@@ -133,82 +140,21 @@ function create_web_directory() {
 # Function to set ownership for web directories
 function set_ownership() {
     echo_msg "Setting ownership for the web directories..."
-    if [[ "$SERVER_TYPE" == "apache" ]]; then
-        sudo chown -R www-data:www-data /var/www/$DOMAIN || sudo chown -R apache:apache /var/www/$DOMAIN
-    else
-        sudo chown -R www-data:www-data /var/www/$DOMAIN
-    fi
+    sudo chown -R www-data:www-data /var/www/$DOMAIN || sudo chown -R apache:apache /var/www/$DOMAIN
 }
 
 # Main script execution starts here
 
 # Prompt for server type
-while true; do
-    read -p "Which server do you want to install? (1. Apache, 2. Nginx, default: 1): " SERVER_CHOICE
-    SERVER_CHOICE=${SERVER_CHOICE:-1}
-    
-    if [[ "$SERVER_CHOICE" == "1" ]]; then
-        SERVER_TYPE="apache"
-        break
-    elif [[ "$SERVER_CHOICE" == "2" ]]; then
-        SERVER_TYPE="nginx"
-        break
-    else
-        echo_error "Invalid choice. Please enter 1 or 2."
-    fi
-done
+echo "Select server to install:"
+echo "1) Apache"
+echo "2) Nginx"
+read -p "Enter your choice (default: 1): " SERVER_CHOICE
+SERVER_CHOICE=${SERVER_CHOICE:-1}
 
 # Prompt for domain name
 while true; do
     read -p "Enter your domain name (default: dhruvjoshi.dev): " DOMAIN
     DOMAIN=${DOMAIN:-dhruvjoshi.dev}
 
-    if validate_domain "$DOMAIN"; then
-        break
-    fi
-done
-
-# Check if the domain points to this server's IP
-check_dns "$DOMAIN"
-
-# Add domain to /etc/hosts
-add_to_hosts "$DOMAIN"
-
-# Determine package manager
-detect_package_manager
-
-# Check if it's a new server
-read -p "Is this a new server setup? (y/n, default: y): " NEW_SERVER
-NEW_SERVER=${NEW_SERVER:-y}
-
-if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
-    sudo $PACKAGE_MANAGER update -y
-
-    # Install selected server
-    if [[ "$SERVER_TYPE" == "apache" ]]; then
-        install_apache
-    else
-        install_nginx
-    fi
-
-    install_php
-} else {
-    if [[ "$SERVER_TYPE" == "apache" ]]; then
-        read -p "Do you want to install Apache? (y/n, default: y): " INSTALL_APACHE
-        INSTALL_APACHE=${INSTALL_APACHE:-y}
-        [[ "$INSTALL_APACHE" =~ ^[yY]$ ]] && install_apache
-    else
-        read -p "Do you want to install Nginx? (y/n, default: y): " INSTALL_NGINX
-        INSTALL_NGINX=${INSTALL_NGINX:-y}
-        [[ "$INSTALL_NGINX" =~ ^[yY]$ ]] && install_nginx
-    fi
-
-    read -p "Do you want to install PHP and its extensions? (y/n, default: y): " INSTALL_PHP
-    INSTALL_PHP=${INSTALL_PHP:-y}
-    [[ "$INSTALL_PHP" =~ ^[yY]$ ]] && install_php
-}
-
-create_web_directory
-set_ownership
-
-echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
+    if validate_domain "$DOMAIN"; t
