@@ -150,6 +150,21 @@ server {
 }
 EOF
 
+    # Check if the symbolic link already exists
+    if [ -L "/etc/nginx/sites-enabled/$DOMAIN" ]; then
+        echo_msg "The symbolic link /etc/nginx/sites-enabled/$DOMAIN already exists."
+        read -p "Do you want to delete it and continue? (y/n, default is y): " choice
+        choice=${choice:-y}  # Default to 'y' if no input is given
+
+        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            echo_msg "Deleting the existing symbolic link..."
+            sudo rm /etc/nginx/sites-enabled/$DOMAIN
+        else
+            echo_msg "Skipping the creation of the symbolic link."
+            return
+        fi
+    fi
+
     echo_msg "Enabling Nginx configuration..."
     sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 
