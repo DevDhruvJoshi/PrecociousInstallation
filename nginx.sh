@@ -166,11 +166,77 @@ EOF
     sudo systemctl reload nginx
 }
 
+
+# Fetch available Git branches
+function fetch_branches() {
+    echo_msg "Fetching branches from the repository..."
+    branches=$(git ls-remote --heads https://github.com/DevDhruvJoshi/Precocious.git | awk '{print $2}' | sed 's|refs/heads/||')
+    echo_msg "Available branches:"
+    echo "$branches" | nl
+}
+
+# Clone the selected branch from the Git repository
+function clone_repository() {
+    local selected_branch="$1"
+    local target_dir="/var/www/$DOMAIN"
+    
+    if [ -d "$target_dir" ]; then
+        echo_msg "Directory $target_dir already exists."
+        read -p "Do you want to delete it and continue? (y/n, default is y): " choice
+        choice=${choice:-y}  # Default to 'y' if no input is given
+
+        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            echo_msg "Deleting the existing directory..."
+            sudo rm -rf "$target_dir"
+        else
+            echo_msg "Updating the existing repository..."
+            cd "$target_dir" || exit
+            git checkout "$selected_branch"
+            git pull origin "$selected_branch"
+            return
+        fi
+    fi
+
+    echo_msg "Cloning the Git repository into $target_dir from branch '$selected_branch'..."
+    git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git "$target_dir"
+}
+
+
 # Function to set ownership for web directories
 function set_ownership() {
     echo_msg "Setting ownership for the web directories..."
     sudo chown -R www-data:www-data /var/www/$DOMAIN
 }
+
+# Install Composer
+function install_composer() {
+    read -p "Do you want to install Composer? (y/n, default: y): " INSTALL_COMPOSER
+    INSTALL_COMPOSER=${INSTALL_COMPOSER:-y}
+
+    if [[ "$INSTALL_COMPOSER" =~ ^[yY]$ ]]; then
+        if command -v composer &> /dev/null; then
+            echo_msg "Composer is already installed."
+        else
+            echo_msg "Installing Composer..."
+            php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+            expected_hash="$(curl -s https://composer.github.io/installer.sha384sum | awk '{print $1}')"
+            actual_hash="$(php -r "echo hash_file('sha384', 'composer-setup.php');")"
+
+            if [ "$expected_hash" != "$actual_hash" ]; then
+                echo_error "Installer corrupt"
+                rm composer-setup.php
+                exit 1
+            fi
+
+            php composer-setup.php
+            php -r "unlink('composer-setup.php');"
+            sudo mv composer.phar /usr/local/bin/composer
+            sudo chmod +x /usr/local/bin/composer
+            echo_msg "Composer has been installed successfully."
+        fi
+    fi
+}
+
 
 # Install Git if not already installed
 function install_git() {
@@ -238,7 +304,29 @@ else
 fi
 
 create_web_directory
+# Fetch branches and clone the selected one
+fetch_branches
+
+branch_count=$(echo "$branches" | wc -l)
+
+if [[ $branch_count -eq 1 ]]; then
+    selected_branch=$(echo "$branches" | sed -n '1p')
+    echo_msg "Only one branch available: '$selected_branch'."
+else
+    read -p "Enter the number of the branch you want to clone (default: 1): " branch_number
+    branch_number=${branch_number:-1}
+    selected_branch=$(echo "$branches" | sed -n "${branch_number}p")
+
+    if [[ -z "$selected_branch" ]]; then
+        echo_error "Invalid selection. Exiting."
+        exit 1
+    fi
+fi
+
+clone_repository "$selected_branch"
 create_nginx_config
 set_ownership
+
+install_composer
 
 echo_msg "Setup complete! Please remember to configure your database connection as needed."
