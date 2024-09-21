@@ -41,6 +41,31 @@ function check_dns() {
     fi
 }
 
+# Function to add domain to /etc/hosts
+function add_to_hosts() {
+    local domain="$1"
+    local ip=$(hostname -I | awk '{print $1}')
+    
+    echo_msg "You are about to add $domain to /etc/hosts with IP $ip."
+    echo_msg "Adding this entry can improve local resolution for testing purposes."
+
+    # Prompt the user for confirmation
+    read -p "Do you want to add this entry to /etc/hosts? (y/n, default: n): " ADD_TO_HOSTS
+    ADD_TO_HOSTS=${ADD_TO_HOSTS:-n}  # Default to 'n' if no input
+
+    # Check if the entry exists
+    if [[ "$ADD_TO_HOSTS" =~ ^[yY]$ ]]; then
+        if ! grep -q "$ip $domain" /etc/hosts; then
+            echo "$ip $domain" | sudo tee -a /etc/hosts > /dev/null
+            echo_msg "Added $domain to /etc/hosts with IP $ip."
+        else
+            echo_msg "$domain with IP $ip is already in /etc/hosts."
+        fi
+    else
+        echo_msg "Skipping addition of $domain to /etc/hosts."
+    fi
+}
+
 # Install Git if not already installed
 function install_git() {
     if ! command -v git &> /dev/null; then
@@ -207,6 +232,9 @@ done
 
 # Check if the domain points to this server's IP
 check_dns "$DOMAIN"
+
+# Add domain to /etc/hosts
+add_to_hosts "$DOMAIN"
 
 # Determine package manager
 detect_package_manager
