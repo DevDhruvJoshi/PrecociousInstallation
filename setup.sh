@@ -40,6 +40,16 @@ function check_dns() {
     fi
 }
 
+# Function to check and install Git
+function install_git() {
+    if ! command -v git &> /dev/null; then
+        echo_msg "Installing Git..."
+        sudo $PACKAGE_MANAGER install git -y
+    else
+        echo_msg "Git is already installed."
+    fi
+}
+
 # Prompt for domain name
 while true; do
     read -p "Enter your domain name (default: app.example.com): " DOMAIN
@@ -71,6 +81,9 @@ read -p "Is this a new server setup? (y/n): " NEW_SERVER
 if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     echo_msg "Updating package list..."
     sudo $PACKAGE_MANAGER update -y
+
+    # Install Git
+    install_git
 
     # Install Apache
     echo_msg "Installing Apache..."
@@ -171,6 +184,11 @@ fi
 echo_msg "Creating directories for virtual hosts..."
 sudo mkdir -p /var/www/$DOMAIN
 
+# Clone the Git repository
+echo_msg "Cloning the Git repository..."
+install_git  # Ensure Git is installed
+git clone git@github.com:DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
+
 # Create virtual host configuration files
 echo_msg "Creating virtual host configuration files..."
 cat <<EOF | sudo tee /etc/apache2/sites-available/$DOMAIN.conf
@@ -190,17 +208,12 @@ echo_msg "Enabling virtual host configurations..."
 if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
     sudo a2ensite $DOMAIN.conf
 else
-    # For other package managers, Apache should pick up the new configuration automatically
     echo_msg "Ensure to manually include your virtual host configuration in your Apache config."
 fi
 
 # Restart Apache to apply new configurations
 echo_msg "Restarting Apache to apply new configurations..."
 sudo systemctl restart apache2 || sudo systemctl restart httpd
-
-# Create index.php files for each site
-echo_msg "Creating index.php files..."
-echo "<?php echo 'This is the $DOMAIN subdomain.'; ?>" | sudo tee /var/www/$DOMAIN/index.php
 
 # Set ownership for the web directories
 echo_msg "Setting ownership for the web directories..."
