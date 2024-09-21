@@ -221,9 +221,11 @@ NEW_SERVER=${NEW_SERVER:-y}
 if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     sudo $PACKAGE_MANAGER update -y
     install_git
-    install_nginx
+
     # Check if Apache is running and prompt user to stop it
     check_and_stop_apache
+    install_nginx
+
     install_php
 else
     read -p "Do you want to install Nginx? (y/n, default: y): " INSTALL_NGINX
