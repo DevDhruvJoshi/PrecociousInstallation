@@ -91,6 +91,27 @@ function install_nginx() {
     fi
 }
 
+# Function to check and stop Apache if running
+function check_and_stop_apache() {
+    if systemctl is-active --quiet apache2; then
+        echo_msg "Apache is currently running."
+        read -p "Do you want to stop Apache to free up port 80? (y/n, default: y): " STOP_APACHE
+        STOP_APACHE=${STOP_APACHE:-y}
+        
+        if [[ "$STOP_APACHE" =~ ^[yY]$ ]]; then
+            echo_msg "Stopping Apache service..."
+            sudo systemctl stop apache2
+            echo_msg "Apache service stopped."
+        else
+            echo_error "Apache must be stopped to run Nginx on port 80."
+            exit 1
+        fi
+    else
+        echo_msg "Apache is not running."
+    fi
+}
+
+
 # Function to create directories for the website
 function create_web_directory() {
     if [ ! -d "/var/www/$DOMAIN" ]; then
@@ -201,6 +222,8 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     sudo $PACKAGE_MANAGER update -y
     install_git
     install_nginx
+    # Check if Apache is running and prompt user to stop it
+    check_and_stop_apache
     install_php
 else
     read -p "Do you want to install Nginx? (y/n, default: y): " INSTALL_NGINX
