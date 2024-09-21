@@ -8,6 +8,11 @@ function echo_msg() {
     echo ">>> $1"
 }
 
+# Function to display error messages in red
+function echo_error() {
+    echo -e "\033[31m>>> ERROR: $1\033[0m"
+}
+
 # Function to validate domain
 function validate_domain() {
     local domain="$1"
@@ -16,6 +21,23 @@ function validate_domain() {
         return 1
     fi
     return 0
+}
+
+# Function to check if the domain points to the server's IP
+function check_dns() {
+    local domain="$1"
+    local server_ip=$(hostname -I | awk '{print $1}') # Get the server's first IP
+    local dns_ip=$(dig +short "$domain" A | head -n 1) # Get the A record for the domain
+
+    if [[ "$dns_ip" != "$server_ip" ]]; then
+        echo_error "The domain '$domain' does not point to this server's IP ($server_ip)."
+        echo "Please update the DNS A record for '$domain' to point to this server's IP."
+        read -p "Do you want to continue with the installation? (y/n): " CONTINUE_INSTALL
+        if [[ ! "$CONTINUE_INSTALL" =~ ^[yY]$ ]]; then
+            echo_msg "Exiting installation."
+            exit 1
+        fi
+    fi
 }
 
 # Prompt for domain name
@@ -27,6 +49,9 @@ while true; do
         break
     fi
 done
+
+# Check if the domain points to this server's IP
+check_dns "$DOMAIN"
 
 # Check if it's a new server
 read -p "Is this a new server setup? (y/n): " NEW_SERVER
