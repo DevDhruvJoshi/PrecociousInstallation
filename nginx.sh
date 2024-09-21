@@ -344,4 +344,4 @@ set_ownership
 
 install_composer
 
-echo_msg "Setup complete! Please remember to configure your database connection as needed."
+echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
