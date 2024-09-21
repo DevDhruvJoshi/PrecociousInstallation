@@ -36,13 +36,24 @@ function check_dns() {
     fi
 }
 
-# Function to check and install Git
-function install_git() {
-    if ! command -v git &> /dev/null; then
-        echo_msg "Installing Git..."
-        sudo $PACKAGE_MANAGER install git -y
+# Function to install Nginx
+function handle_nginx() {
+    if command -v nginx &> /dev/null; then
+        echo_msg "Nginx is already installed."
+        if sudo systemctl is-active --quiet nginx; then
+            echo_msg "Stopping Nginx temporarily..."
+            sudo systemctl stop nginx
+        fi
     else
-        echo_msg "Git is already installed."
+        echo_msg "Installing Nginx..."
+        if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+            sudo apt install nginx -y
+        else
+            sudo yum install nginx -y
+        fi
+        echo_msg "Starting Nginx..."
+        sudo systemctl start nginx
+        sudo systemctl enable nginx
     fi
 }
 
@@ -78,7 +89,12 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     sudo $PACKAGE_MANAGER update -y
 
     # Install Git
-    install_git
+    echo_msg "Installing Git..."
+    if ! command -v git &> /dev/null; then
+        sudo $PACKAGE_MANAGER install git -y
+    else
+        echo_msg "Git is already installed."
+    fi
 
     # Install Apache
     echo_msg "Installing Apache..."
@@ -93,17 +109,8 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
         sudo systemctl enable httpd
     fi
 
-    # Install Nginx
-    echo_msg "Installing Nginx..."
-    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
-        sudo apt install nginx -y
-        sudo systemctl start nginx
-        sudo systemctl enable nginx
-    else
-        sudo yum install nginx -y
-        sudo systemctl start nginx
-        sudo systemctl enable nginx
-    fi
+    # Handle Nginx
+    handle_nginx
 
     # Install PHP and required extensions
     echo_msg "Installing PHP and extensions..."
@@ -145,7 +152,6 @@ sudo mkdir -p /var/www/$DOMAIN
 
 # Clone the Git repository
 echo_msg "Cloning the Git repository..."
-install_git  # Ensure Git is installed
 git clone git@github.com:DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
 
 # Create virtual host configuration files
@@ -155,34 +161,4 @@ cat <<EOF | sudo tee /etc/apache2/sites-available/$DOMAIN.conf
     ServerName $DOMAIN
     ServerAlias *.$DOMAIN
     DocumentRoot /var/www/$DOMAIN
-    <Directory /var/www/$DOMAIN>
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-EOF
-
-# Enable the new virtual host configurations
-echo_msg "Enabling virtual host configurations..."
-if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
-    sudo a2ensite $DOMAIN.conf
-else
-    echo_msg "Ensure to manually include your virtual host configuration in your Apache config."
-fi
-
-# Restart Apache to apply new configurations
-echo_msg "Restarting Apache to apply new configurations..."
-sudo systemctl restart apache2 || sudo systemctl restart httpd
-
-# Set ownership for the web directories
-echo_msg "Setting ownership for the web directories..."
-sudo chown -R www-data:www-data /var/www/$DOMAIN || sudo chown -R apache:apache /var/www/$DOMAIN
-
-# Check Nginx status and log errors
-echo_msg "Checking Nginx status..."
-if ! sudo systemctl status nginx.service; then
-    echo_error "Nginx is not running. Check the logs for details."
-    sudo journalctl -xeu nginx.service
-fi
-
-echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
+    <D
