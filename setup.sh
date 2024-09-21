@@ -8,6 +8,26 @@ function echo_msg() {
     echo ">>> $1"
 }
 
+# Function to validate domain
+function validate_domain() {
+    local domain="$1"
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        echo "Invalid domain name. Please enter a valid domain (e.g., example.com)."
+        return 1
+    fi
+    return 0
+}
+
+# Prompt for domain name
+while true; do
+    read -p "Enter your domain name (default: app.dhruvjoshi.dev): " DOMAIN
+    DOMAIN=${DOMAIN:-app.dhruvjoshi.dev}
+
+    if validate_domain "$DOMAIN"; then
+        break
+    fi
+done
+
 # Update and upgrade the package list
 echo_msg "Updating and upgrading packages..."
 sudo apt update -y && sudo apt upgrade -y
@@ -54,44 +74,27 @@ echo_msg "Enabling Apache rewrite module..."
 sudo a2enmod rewrite
 sudo systemctl restart apache2
 
+# Install Composer
+echo_msg "Installing Composer..."
+php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+php -r "if (hash_file('sha384', 'composer-setup.php') === 'c3f3cbe12c3c5f5cf2c4b39a37785c9ec12e1670d46d4a7e9e27ef85d5eb5459ee0b68cf421d9b54df5be8dd67a9188d') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+php composer-setup.php
+php -r "unlink('composer-setup.php');"
+sudo mv composer.phar /usr/local/bin/composer
+sudo chmod +x /usr/local/bin/composer
+
 # Create directories for virtual hosts
 echo_msg "Creating directories for virtual hosts..."
-sudo mkdir -p /var/www/app.dhruvjoshi.dev
-sudo mkdir -p /var/www/prod.dhruvjoshi.dev
-sudo mkdir -p /var/www/html
+sudo mkdir -p /var/www/$DOMAIN
 
 # Create virtual host configuration files
 echo_msg "Creating virtual host configuration files..."
-cat <<EOF | sudo tee /etc/apache2/sites-available/app.dhruvjoshi.dev.conf
+cat <<EOF | sudo tee /etc/apache2/sites-available/$DOMAIN.conf
 <VirtualHost *:80>
-    ServerName app.dhruvjoshi.dev
-    ServerAlias *.app.dhruvjoshi.dev
-    DocumentRoot /var/www/app.dhruvjoshi.dev
-    <Directory /var/www/app.dhruvjoshi.dev>
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-EOF
-
-cat <<EOF | sudo tee /etc/apache2/sites-available/prod.dhruvjoshi.dev.conf
-<VirtualHost *:80>
-    ServerName prod.dhruvjoshi.dev
-    ServerAlias *.prod.dhruvjoshi.dev
-    DocumentRoot /var/www/prod.dhruvjoshi.dev
-    <Directory /var/www/prod.dhruvjoshi.dev>
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-EOF
-
-cat <<EOF | sudo tee /etc/apache2/sites-available/precocious.dhruvjoshi.dev.conf
-<VirtualHost *:80>
-    ServerName precocious.dhruvjoshi.dev
-    ServerAlias *.precocious.dhruvjoshi.dev
-    DocumentRoot /var/www/html
-    <Directory /var/www/html>
+    ServerName $DOMAIN
+    ServerAlias *.$DOMAIN
+    DocumentRoot /var/www/$DOMAIN
+    <Directory /var/www/$DOMAIN>
         AllowOverride All
         Require all granted
     </Directory>
@@ -100,13 +103,7 @@ EOF
 
 # Enable the new virtual host configurations
 echo_msg "Enabling virtual host configurations..."
-sudo a2ensite app.dhruvjoshi.dev.conf
-sudo a2ensite prod.dhruvjoshi.dev.conf
-sudo a2ensite precocious.dhruvjoshi.dev.conf
-
-# Disable the default site
-echo_msg "Disabling default site..."
-sudo a2dissite 000-default.conf
+sudo a2ensite $DOMAIN.conf
 
 # Restart Apache to apply new configurations
 echo_msg "Restarting Apache to apply new configurations..."
@@ -114,14 +111,10 @@ sudo systemctl restart apache2
 
 # Create index.php files for each site
 echo_msg "Creating index.php files..."
-echo "<?php echo 'This is the App subdomain.'; ?>" | sudo tee /var/www/app.dhruvjoshi.dev/index.php
-echo "<?php echo 'This is the Prod subdomain.'; ?>" | sudo tee /var/www/prod.dhruvjoshi.dev/index.php
-echo "<?php echo 'This is the Precocious subdomain.'; ?>" | sudo tee /var/www/html/index.php
+echo "<?php echo 'This is the $DOMAIN subdomain.'; ?>" | sudo tee /var/www/$DOMAIN/index.php
 
 # Set ownership for the web directories
 echo_msg "Setting ownership for the web directories..."
-sudo chown -R www-data:www-data /var/www/app.dhruvjoshi.dev
-sudo chown -R www-data:www-data /var/www/prod.dhruvjoshi.dev
-sudo chown -R www-data:www-data /var/www/html
+sudo chown -R www-data:www-data /var/www/$DOMAIN
 
 echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
