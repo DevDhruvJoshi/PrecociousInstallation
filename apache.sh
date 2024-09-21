@@ -105,6 +105,32 @@ function install_apache() {
     fi
 }
 
+# Function to check and stop Nginx if running
+function check_and_stop_nginx() {
+    if ! command -v nginx &> /dev/null; then
+        echo_error "Nginx is not installed on this server."
+        exit 1
+    fi
+
+    if systemctl is-active --quiet nginx; then
+        echo_msg "Nginx is currently running."
+        read -p "Do you want to stop Nginx to free up port 80? (y/n, default: y): " STOP_NGINX
+        STOP_NGINX=${STOP_NGINX:-y}
+        
+        if [[ "$STOP_NGINX" =~ ^[yY]$ ]]; then
+            echo_msg "Stopping Nginx service..."
+            sudo systemctl stop nginx
+            echo_msg "Nginx service stopped."
+        else
+            echo_error "Nginx must be stopped to run another service on port 80."
+            exit 1
+        fi
+    else
+        echo_msg "Nginx is not running."
+    fi
+}
+
+
 # Function to install PHP and its extensions
 function install_php() {
     echo_msg "Installing PHP and extensions..."
@@ -246,7 +272,12 @@ NEW_SERVER=${NEW_SERVER:-y}
 if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     sudo $PACKAGE_MANAGER update -y
     install_git
+
+    # Check if Apache is running and prompt user to stop it
+    check_and_stop_nginx
+    
     install_apache
+    
     install_php
     install_mysql
     enable_rewrite
