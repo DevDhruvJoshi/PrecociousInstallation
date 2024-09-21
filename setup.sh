@@ -13,90 +13,73 @@ function echo_error() {
     echo -e "\033[31m>>> ERROR: $1\033[0m"
 }
 
-# Function to validate domain
+# Validate the domain format
 function validate_domain() {
     local domain="$1"
     if [[ ! "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-        echo_error "Invalid domain name. Please enter a valid domain (e.g., example.com)."
+        echo_error "Invalid domain name. Please enter a valid domain (e.g., dhruvjoshi.dev)."
         return 1
     fi
     return 0
 }
 
-# Function to check if the domain points to the server's IP
+# Check if the domain points to the server's IP
 function check_dns() {
     local domain="$1"
-    local server_ip=$(hostname -I | awk '{print $1}') # Get the server's first IP
-    local dns_ip=$(dig +short "$domain" A | head -n 1) # Get the A record for the domain
+    local server_ip=$(hostname -I | awk '{print $1}')
+    local dns_ip=$(dig +short "$domain" A | head -n 1)
 
     if [[ "$dns_ip" != "$server_ip" ]]; then
         echo_error "The domain '$domain' does not point to this server's IP ($server_ip)."
         echo "Please update the DNS A record for '$domain' to point to this server's IP."
-        echo_msg "Continuing with installation despite DNS issues."
+        read -p "Do you want to continue with the installation? (y/n, default: y): " CONTINUE_INSTALL
+        CONTINUE_INSTALL=${CONTINUE_INSTALL:-y}
+        if [[ ! "$CONTINUE_INSTALL" =~ ^[yY]$ ]]; then
+            echo_msg "Exiting installation."
+            exit 1
+        fi
     fi
 }
 
-# Function to install Nginx
-function handle_nginx() {
-    if command -v nginx &> /dev/null; then
-        echo_msg "Nginx is already installed."
-        if sudo systemctl is-active --quiet nginx; then
-            echo_msg "Stopping Nginx temporarily..."
-            sudo systemctl stop nginx
-        fi
-    else
-        echo_msg "Installing Nginx..."
-        if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
-            sudo apt install nginx -y
+# Function to add domain to /etc/hosts
+function add_to_hosts() {
+    local domain="$1"
+    local ip=$(hostname -I | awk '{print $1}')
+    
+    echo_msg "You are about to add $domain to /etc/hosts with IP $ip."
+    echo_msg "Adding this entry can improve local resolution for testing purposes."
+
+    read -p "Do you want to add this entry to /etc/hosts? (y/n, default: n): " ADD_TO_HOSTS
+    ADD_TO_HOSTS=${ADD_TO_HOSTS:-n}
+
+    if [[ "$ADD_TO_HOSTS" =~ ^[yY]$ ]]; then
+        if ! grep -q "$ip $domain" /etc/hosts; then
+            echo "$ip $domain" | sudo tee -a /etc/hosts > /dev/null
+            echo_msg "Added $domain to /etc/hosts with IP $ip."
         else
-            sudo yum install nginx -y
+            echo_msg "$domain with IP $ip is already in /etc/hosts."
         fi
-        echo_msg "Starting Nginx..."
-        sudo systemctl start nginx
-        sudo systemctl enable nginx
+    else
+        echo_msg "Skipping addition of $domain to /etc/hosts."
     fi
 }
 
-# Prompt for domain name
-while true; do
-    read -p "Enter your domain name (default: app.example.com): " DOMAIN
-    DOMAIN=${DOMAIN:-app.example.com}
-
-    if validate_domain "$DOMAIN"; then
-        break
-    fi
-done
-
-# Check if the domain points to this server's IP
-check_dns "$DOMAIN"
-
-# Determine package manager
-if command -v apt &> /dev/null; then
-    PACKAGE_MANAGER="apt"
-elif command -v yum &> /dev/null; then
-    PACKAGE_MANAGER="yum"
-elif command -v dnf &> /dev/null; then
-    PACKAGE_MANAGER="dnf"
-else
-    echo_error "No supported package manager found (apt, yum, dnf). Exiting."
-    exit 1
-fi
-
-# Check if it's a new server
-NEW_SERVER="y"  # Default to yes
-if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
-    echo_msg "Updating package list..."
-    sudo $PACKAGE_MANAGER update -y
-
-    # Install Git
-    echo_msg "Installing Git..."
-    if ! command -v git &> /dev/null; then
-        sudo $PACKAGE_MANAGER install git -y
+# Get the package manager
+function detect_package_manager() {
+    if command -v apt &> /dev/null; then
+        PACKAGE_MANAGER="apt"
+    elif command -v yum &> /dev/null; then
+        PACKAGE_MANAGER="yum"
+    elif command -v dnf &> /dev/null; then
+        PACKAGE_MANAGER="dnf"
     else
-        echo_msg "Git is already installed."
+        echo_error "No supported package manager found (apt, yum, dnf). Exiting."
+        exit 1
     fi
+}
 
-    # Install Apache
+# Function to install Apache
+function install_apache() {
     echo_msg "Installing Apache..."
     if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
         sudo apt install apache2 -y
@@ -108,57 +91,124 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
         sudo systemctl start httpd
         sudo systemctl enable httpd
     fi
+}
 
-    # Handle Nginx
-    handle_nginx
+# Function to install Nginx
+function install_nginx() {
+    echo_msg "Installing Nginx..."
+    if ! command -v nginx &> /dev/null; then
+        sudo $PACKAGE_MANAGER install nginx -y
+        sudo systemctl start nginx
+        sudo systemctl enable nginx
+        sudo ufw allow 'Nginx Full'
+    else
+        echo_msg "Nginx is already installed."
+    fi
+}
 
-    # Install PHP and required extensions
+# Function to install PHP and its extensions
+function install_php() {
     echo_msg "Installing PHP and extensions..."
     if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
         sudo add-apt-repository ppa:ondrej/php -y
         sudo apt update -y
-        sudo apt install -y php libapache2-mod-php php-mysql php-fpm \
-        php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+        sudo apt install -y php libapache2-mod-php php-mysql php-fpm php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+        sudo a2enmod php8.3
+        sudo a2enconf php8.3-fpm
     else
         sudo yum install php php-mysqlnd php-fpm php-curl php-gd php-mbstring php-xml php-zip php-bcmath -y
     fi
+}
 
-    # Enable PHP module and configuration
-    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
-        sudo a2enmod php8.3
-        sudo a2enconf php8.3-fpm
+# Function to create web directory
+function create_web_directory() {
+    if [ ! -d "/var/www/$DOMAIN" ]; then
+        echo_msg "Creating directory /var/www/$DOMAIN..."
+        sudo mkdir -p /var/www/$DOMAIN
+    else
+        echo_msg "Directory /var/www/$DOMAIN already exists."
+    fi
+}
+
+# Function to set ownership for web directories
+function set_ownership() {
+    echo_msg "Setting ownership for the web directories..."
+    if [[ "$SERVER_TYPE" == "apache" ]]; then
+        sudo chown -R www-data:www-data /var/www/$DOMAIN || sudo chown -R apache:apache /var/www/$DOMAIN
+    else
+        sudo chown -R www-data:www-data /var/www/$DOMAIN
+    fi
+}
+
+# Main script execution starts here
+
+# Prompt for server type
+while true; do
+    read -p "Which server do you want to install? (1. Apache, 2. Nginx, default: 1): " SERVER_CHOICE
+    SERVER_CHOICE=${SERVER_CHOICE:-1}
+    
+    if [[ "$SERVER_CHOICE" == "1" ]]; then
+        SERVER_TYPE="apache"
+        break
+    elif [[ "$SERVER_CHOICE" == "2" ]]; then
+        SERVER_TYPE="nginx"
+        break
+    else
+        echo_error "Invalid choice. Please enter 1 or 2."
+    fi
+done
+
+# Prompt for domain name
+while true; do
+    read -p "Enter your domain name (default: dhruvjoshi.dev): " DOMAIN
+    DOMAIN=${DOMAIN:-dhruvjoshi.dev}
+
+    if validate_domain "$DOMAIN"; then
+        break
+    fi
+done
+
+# Check if the domain points to this server's IP
+check_dns "$DOMAIN"
+
+# Add domain to /etc/hosts
+add_to_hosts "$DOMAIN"
+
+# Determine package manager
+detect_package_manager
+
+# Check if it's a new server
+read -p "Is this a new server setup? (y/n, default: y): " NEW_SERVER
+NEW_SERVER=${NEW_SERVER:-y}
+
+if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
+    sudo $PACKAGE_MANAGER update -y
+
+    # Install selected server
+    if [[ "$SERVER_TYPE" == "apache" ]]; then
+        install_apache
+    else
+        install_nginx
     fi
 
-    # Restart Apache to apply changes
-    echo_msg "Restarting Apache..."
-    sudo systemctl restart apache2 || sudo systemctl restart httpd
-
-    # Install MySQL server
-    echo_msg "Installing MySQL server..."
-    sudo $PACKAGE_MANAGER install mysql-server -y
-    echo_msg "Please run 'mysql_secure_installation' manually to secure your MySQL installation."
-
-    # Enable Apache rewrite module
-    echo_msg "Enabling Apache rewrite module..."
-    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
-        sudo a2enmod rewrite
+    install_php
+} else {
+    if [[ "$SERVER_TYPE" == "apache" ]]; then
+        read -p "Do you want to install Apache? (y/n, default: y): " INSTALL_APACHE
+        INSTALL_APACHE=${INSTALL_APACHE:-y}
+        [[ "$INSTALL_APACHE" =~ ^[yY]$ ]] && install_apache
+    else
+        read -p "Do you want to install Nginx? (y/n, default: y): " INSTALL_NGINX
+        INSTALL_NGINX=${INSTALL_NGINX:-y}
+        [[ "$INSTALL_NGINX" =~ ^[yY]$ ]] && install_nginx
     fi
-    sudo systemctl restart apache2 || sudo systemctl restart httpd
-fi
 
-# Create directories for virtual hosts
-echo_msg "Creating directories for virtual hosts..."
-sudo mkdir -p /var/www/$DOMAIN
+    read -p "Do you want to install PHP and its extensions? (y/n, default: y): " INSTALL_PHP
+    INSTALL_PHP=${INSTALL_PHP:-y}
+    [[ "$INSTALL_PHP" =~ ^[yY]$ ]] && install_php
+}
 
-# Clone the Git repository
-echo_msg "Cloning the Git repository..."
-git clone git@github.com:DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
+create_web_directory
+set_ownership
 
-# Create virtual host configuration files
-echo_msg "Creating virtual host configuration files..."
-cat <<EOF | sudo tee /etc/apache2/sites-available/$DOMAIN.conf
-<VirtualHost *:80>
-    ServerName $DOMAIN
-    ServerAlias *.$DOMAIN
-    DocumentRoot /var/www/$DOMAIN
-    <D
+echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
