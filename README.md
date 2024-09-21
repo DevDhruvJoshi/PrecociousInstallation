@@ -1,58 +1,60 @@
 <div>
     <h1>Documentation</h1>
     <h2>Overview</h2>
-    <code> +---------------------+
-| User Input |
-+---------------------+
-|
-|
-+---------------------+
-| Choose Web Server |
-| (1: Apache, 2: Nginx) |
-+---------------------+
-|
-+-------+-------+
-| |
-+----v----+ +-----v-----+
-| Apache | | Nginx |
-| Setup | | Setup |
-+----------+ +-----------+
-| |
-+----+----+ +-----+-----+
-| Install | | Install |
-| PHP & | | PHP & |
-| Extensions| | Extensions|
-+-----------+ +-----------+
-| |
-+----+----+ +-----+-----+
-| MySQL | | MySQL |
-| Install | | Install |
-+----------+ +-----------+
-| |
-+-------+--------+
-|
-+-------v--------+
-| Create Directories |
-| and Config Files |
-+---------------------+
-|
-+-------v--------+
-| Clone Git Repo |
-+-----------------+
-|
-+-------v--------+
-| Restart Web |
-| Server |
-+-----------------+
-|
-+-------v--------+
-| Set Ownership |
-+-----------------+
-|
-+-------v--------+
-| Setup Complete |
-+------------------+
-</code>
+    <code>
+            +---------------------+
+            |     User Input      |
+            +---------------------+
+                     |
+                     |
+          +---------------------+
+          |   Choose Web Server  |
+          |   (1: Apache, 2: Nginx) |
+          +---------------------+
+                     |
+             +-------+-------+
+             |               |
+        +----v----+    +-----v-----+
+        |  Apache  |    |   Nginx   |
+        |  Setup   |    |   Setup   |
+        +----------+    +-----------+
+             |                |
+        +----+----+     +-----+-----+
+        |  Install |     |  Install  |
+        |  PHP &   |     |  PHP &    |
+        | Extensions|     | Extensions|
+        +-----------+     +-----------+
+             |                |
+        +----+----+     +-----+-----+
+        | MySQL    |     | MySQL     |
+        | Install  |     | Install   |
+        +----------+     +-----------+
+             |                |
+             +-------+--------+
+                     |
+             +-------v--------+
+             |  Create Directories |
+             |  and Config Files   |
+             +---------------------+
+                     |
+             +-------v--------+
+             | Clone Git Repo  |
+             +-----------------+
+                     |
+             +-------v--------+
+             |   Restart Web   |
+             |     Server      |
+             +-----------------+
+                     |
+             +-------v--------+
+             |   Set Ownership  |
+             +-----------------+
+                     |
+             +-------v--------+
+             |   Setup Complete  |
+             +------------------+
+
+    </code>
     <p>The <code>setup.sh</code> script automates the installation and configuration of a web server environment on a fresh Ubuntu server. It installs Apache, PHP, MySQL, and Composer, and sets up a virtual host for a specified domain.</p>
     <h2>Prerequisites</h2>
     <ul>
