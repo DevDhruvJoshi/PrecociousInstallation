@@ -187,7 +187,7 @@ sudo mkdir -p /var/www/$DOMAIN
 # Clone the Git repository
 echo_msg "Cloning the Git repository..."
 install_git  # Ensure Git is installed
-git clone git@github.com:DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
+git clone https://github.com/DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
 
 # Create virtual host configuration files
 echo_msg "Creating virtual host configuration files..."
