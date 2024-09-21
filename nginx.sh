@@ -26,8 +26,8 @@ function validate_domain() {
 # Function to check if the domain points to the server's IP
 function check_dns() {
     local domain="$1"
-    local server_ip=$(hostname -I | awk '{print $1}') # Get the server's first IP
-    local dns_ip=$(dig +short "$domain" A | head -n 1) # Get the A record for the domain
+    local server_ip=$(hostname -I | awk '{print $1}')
+    local dns_ip=$(dig +short "$domain" A | head -n 1)
 
     if [[ "$dns_ip" != "$server_ip" ]]; then
         echo_error "The domain '$domain' does not point to this server's IP ($server_ip)."
@@ -39,6 +39,27 @@ function check_dns() {
         fi
     fi
 }
+
+# Detect package manager
+if command -v apt &> /dev/null; then
+    PM="apt"
+    INSTALL_CMD="sudo apt install -y"
+    UPDATE_CMD="sudo apt update -y && sudo apt upgrade -y"
+    RESTART_CMD="sudo systemctl restart"
+elif command -v dnf &> /dev/null; then
+    PM="dnf"
+    INSTALL_CMD="sudo dnf install -y"
+    UPDATE_CMD="sudo dnf upgrade --refresh -y"
+    RESTART_CMD="sudo systemctl restart"
+elif command -v yum &> /dev/null; then
+    PM="yum"
+    INSTALL_CMD="sudo yum install -y"
+    UPDATE_CMD="sudo yum update -y"
+    RESTART_CMD="sudo systemctl restart"
+else
+    echo_error "Unsupported package manager. Exiting."
+    exit 1
+fi
 
 # Prompt for domain name
 while true; do
@@ -59,22 +80,21 @@ read -p "Is this a new server setup? (y/n): " NEW_SERVER
 if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     # Update and upgrade the package list
     echo_msg "Updating and upgrading packages..."
-    sudo apt update -y && sudo apt upgrade -y
+    eval $UPDATE_CMD
 
     # Install Nginx
     echo_msg "Installing Nginx..."
-    sudo apt install nginx -y
+    eval $INSTALL_CMD nginx
     sudo systemctl start nginx
     sudo systemctl enable nginx
-    sudo ufw allow 'Nginx Full'
 
     # Install PHP and required extensions
-    echo_msg "Adding PHP repository..."
-    sudo add-apt-repository ppa:ondrej/php -y
-    sudo apt update -y
-
     echo_msg "Installing PHP and extensions..."
-    sudo apt install -y php-fpm php-mysql php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+    if [[ "$PM" == "apt" ]]; then
+        sudo add-apt-repository ppa:ondrej/php -y
+        eval $UPDATE_CMD
+    fi
+    eval $INSTALL_CMD php-fpm php-mysql php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
 
     # Check Nginx configuration
     echo_msg "Checking Nginx configuration..."
@@ -82,11 +102,11 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
 
     # Restart Nginx to apply changes
     echo_msg "Restarting Nginx..."
-    sudo systemctl restart nginx
+    eval $RESTART_CMD nginx
 
     # Install MySQL server
     echo_msg "Installing MySQL server..."
-    sudo apt install mysql-server -y
+    eval $INSTALL_CMD mysql-server
     echo_msg "Please run 'mysql_secure_installation' manually to secure your MySQL installation."
 
 else
@@ -94,32 +114,31 @@ else
     read -p "Do you want to install Nginx? (y/n): " INSTALL_NGINX
     if [[ "$INSTALL_NGINX" =~ ^[yY]$ ]]; then
         echo_msg "Installing Nginx..."
-        sudo apt install nginx -y
+        eval $INSTALL_CMD nginx
         sudo systemctl start nginx
         sudo systemctl enable nginx
-        sudo ufw allow 'Nginx Full'
     fi
 
     read -p "Do you want to install PHP and its extensions? (y/n): " INSTALL_PHP
     if [[ "$INSTALL_PHP" =~ ^[yY]$ ]]; then
-        echo_msg "Adding PHP repository..."
-        sudo add-apt-repository ppa:ondrej/php -y
-        sudo apt update -y
-
+        if [[ "$PM" == "apt" ]]; then
+            sudo add-apt-repository ppa:ondrej/php -y
+            eval $UPDATE_CMD
+        fi
         echo_msg "Installing PHP and extensions..."
-        sudo apt install -y php-fpm php-mysql php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+        eval $INSTALL_CMD php-fpm php-mysql php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
 
         echo_msg "Checking Nginx configuration..."
         sudo nginx -t
 
         echo_msg "Restarting Nginx..."
-        sudo systemctl restart nginx
+        eval $RESTART_CMD nginx
     fi
 
     read -p "Do you want to install MySQL server? (y/n): " INSTALL_MYSQL
     if [[ "$INSTALL_MYSQL" =~ ^[yY]$ ]]; then
         echo_msg "Installing MySQL server..."
-        sudo apt install mysql-server -y
+        eval $INSTALL_CMD mysql-server
         echo_msg "Please run 'mysql_secure_installation' manually to secure your MySQL installation."
     fi
 fi
@@ -161,7 +180,7 @@ sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 
 # Restart Nginx to apply new configurations
 echo_msg "Restarting Nginx to apply new configurations..."
-sudo systemctl restart nginx
+eval $RESTART_CMD nginx
 
 # Create index.php files for each site
 echo_msg "Creating index.php files..."
