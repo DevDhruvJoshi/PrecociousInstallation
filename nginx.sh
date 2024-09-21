@@ -106,7 +106,12 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
 
     # Restart Nginx to apply changes
     echo_msg "Restarting Nginx..."
-    eval $RESTART_CMD nginx
+    if ! eval $RESTART_CMD nginx; then
+        echo_error "Failed to restart Nginx. Checking logs for details..."
+        echo "Check the status with: systemctl status nginx.service"
+        echo "View logs with: journalctl -xeu nginx.service"
+        exit 1
+    fi
 
     # Install MySQL server
     echo_msg "Installing MySQL server..."
@@ -140,7 +145,12 @@ else
         sudo nginx -t
 
         echo_msg "Restarting Nginx..."
-        eval $RESTART_CMD nginx
+        if ! eval $RESTART_CMD nginx; then
+            echo_error "Failed to restart Nginx. Checking logs for details..."
+            echo "Check the status with: systemctl status nginx.service"
+            echo "View logs with: journalctl -xeu nginx.service"
+            exit 1
+        fi
     fi
 
     read -p "Do you want to install MySQL server? (y/n): " INSTALL_MYSQL
@@ -188,7 +198,12 @@ sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 
 # Restart Nginx to apply new configurations
 echo_msg "Restarting Nginx to apply new configurations..."
-eval $RESTART_CMD nginx
+if ! eval $RESTART_CMD nginx; then
+    echo_error "Failed to restart Nginx. Checking logs for details..."
+    echo "Check the status with: systemctl status nginx.service"
+    echo "View logs with: journalctl -xeu nginx.service"
+    exit 1
+fi
 
 # Create index.php files for each site
 echo_msg "Creating index.php files..."
