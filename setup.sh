@@ -12,7 +12,7 @@ function echo_msg() {
 function validate_domain() {
     local domain="$1"
     if [[ ! "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-        echo "Invalid domain name. Please enter a valid domain (e.g., example.com)."
+        echo "Invalid domain name. Please enter a valid domain (e.g., dhruvjoshi.dev)."
         return 1
     fi
     return 0
