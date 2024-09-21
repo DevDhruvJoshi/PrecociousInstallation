@@ -180,14 +180,13 @@ else
     sudo systemctl restart apache2 || sudo systemctl restart httpd
 fi
 
-# Create directories for virtual hosts
-echo_msg "Creating directories for virtual hosts..."
-sudo mkdir -p /var/www/$DOMAIN
-
-# Clone the Git repository
-echo_msg "Cloning the Git repository..."
-install_git  # Ensure Git is installed
-git clone https://github.com/DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
+# Create directories for virtual hosts if they don't already exist
+if [ ! -d "/var/www/$DOMAIN" ]; then
+    echo_msg "Creating directory /var/www/$DOMAIN..."
+    sudo mkdir -p /var/www/$DOMAIN
+else
+    echo_msg "Directory /var/www/$DOMAIN already exists."
+fi
 
 # Create virtual host configuration files
 echo_msg "Creating virtual host configuration files..."
@@ -210,6 +209,45 @@ if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
 else
     echo_msg "Ensure to manually include your virtual host configuration in your Apache config."
 fi
+
+
+# Function to fetch and display available branches
+function fetch_branches() {
+    echo_msg "Fetching branches from the repository..."
+    branches=$(git ls-remote --heads https://github.com/DevDhruvJoshi/Precocious.git | awk '{print $2}' | sed 's|refs/heads/||')
+    echo_msg "Available branches:"
+    echo "$branches" | nl  # List branches with line numbers
+}
+
+# Call the function to fetch and display branches
+fetch_branches
+
+# Count the number of branches
+branch_count=$(echo "$branches" | wc -l)
+
+# Determine branch selection
+if [[ $branch_count -eq 1 ]]; then
+    selected_branch=$(echo "$branches" | sed -n '1p')
+    echo_msg "Only one branch available: '$selected_branch'."
+else
+    # Prompt user to select a branch
+    read -p "Enter the number of the branch you want to clone (default: 1): " branch_number
+    branch_number=${branch_number:-1}  # Default to the first branch
+
+    # Get the selected branch from the list
+    selected_branch=$(echo "$branches" | sed -n "${branch_number}p")
+
+    if [[ -z "$selected_branch" ]]; then
+        echo_error "Invalid selection. Exiting."
+        exit 1
+    fi
+fi
+
+# Clone the specified branch of the Git repository
+echo_msg "Cloning the Git repository into /var/www/$DOMAIN from branch '$selected_branch'..."
+git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
+
+
 
 # Restart Apache to apply new configurations
 echo_msg "Restarting Apache to apply new configurations..."
