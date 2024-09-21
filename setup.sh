@@ -64,6 +64,13 @@ function add_to_hosts() {
     fi
 }
 
+# Main script execution starts here
+# ... other parts of the script
+
+# Validate domain and add to hosts
+add_to_hosts "$DOMAIN"
+
+
 # Get the package manager
 function detect_package_manager() {
     if command -v apt &> /dev/null; then
