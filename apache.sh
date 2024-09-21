@@ -32,7 +32,8 @@ function check_dns() {
     if [[ "$dns_ip" != "$server_ip" ]]; then
         echo_error "The domain '$domain' does not point to this server's IP ($server_ip)."
         echo "Please update the DNS A record for '$domain' to point to this server's IP."
-        read -p "Do you want to continue with the installation? (y/n): " CONTINUE_INSTALL
+        read -p "Do you want to continue with the installation? (y/n, default: y): " CONTINUE_INSTALL
+        CONTINUE_INSTALL=${CONTINUE_INSTALL:-y}  # Default to 'y' if no input
         if [[ ! "$CONTINUE_INSTALL" =~ ^[yY]$ ]]; then
             echo_msg "Exiting installation."
             exit 1
@@ -76,7 +77,8 @@ else
 fi
 
 # Check if it's a new server
-read -p "Is this a new server setup? (y/n): " NEW_SERVER
+read -p "Is this a new server setup? (y/n, default: y): " NEW_SERVER
+NEW_SERVER=${NEW_SERVER:-y}  # Default to 'y' if no input
 
 if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     echo_msg "Updating package list..."
@@ -133,7 +135,8 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
 
 else
     # Step by step installation
-    read -p "Do you want to install Apache? (y/n): " INSTALL_APACHE
+    read -p "Do you want to install Apache? (y/n, default: y): " INSTALL_APACHE
+    INSTALL_APACHE=${INSTALL_APACHE:-y}  # Default to 'y' if no input
     if [[ "$INSTALL_APACHE" =~ ^[yY]$ ]]; then
         echo_msg "Installing Apache..."
         if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
@@ -148,7 +151,8 @@ else
         fi
     fi
 
-    read -p "Do you want to install PHP and its extensions? (y/n): " INSTALL_PHP
+    read -p "Do you want to install PHP and its extensions? (y/n, default: y): " INSTALL_PHP
+    INSTALL_PHP=${INSTALL_PHP:-y}  # Default to 'y' if no input
     if [[ "$INSTALL_PHP" =~ ^[yY]$ ]]; then
         echo_msg "Installing PHP and extensions..."
         if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
@@ -165,7 +169,8 @@ else
         sudo systemctl restart apache2 || sudo systemctl restart httpd
     fi
 
-    read -p "Do you want to install MySQL server? (y/n): " INSTALL_MYSQL
+    read -p "Do you want to install MySQL server? (y/n, default: y): " INSTALL_MYSQL
+    INSTALL_MYSQL=${INSTALL_MYSQL:-y}  # Default to 'y' if no input
     if [[ "$INSTALL_MYSQL" =~ ^[yY]$ ]]; then
         echo_msg "Installing MySQL server..."
         sudo $PACKAGE_MANAGER install mysql-server -y
@@ -210,7 +215,6 @@ else
     echo_msg "Ensure to manually include your virtual host configuration in your Apache config."
 fi
 
-
 # Function to fetch and display available branches
 function fetch_branches() {
     echo_msg "Fetching branches from the repository..."
@@ -247,8 +251,6 @@ fi
 echo_msg "Cloning the Git repository into /var/www/$DOMAIN from branch '$selected_branch'..."
 git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
 
-
-
 # Restart Apache to apply new configurations
 echo_msg "Restarting Apache to apply new configurations..."
 sudo systemctl restart apache2 || sudo systemctl restart httpd
@@ -258,7 +260,8 @@ echo_msg "Setting ownership for the web directories..."
 sudo chown -R www-data:www-data /var/www/$DOMAIN || sudo chown -R apache:apache /var/www/$DOMAIN
 
 # Install Composer
-read -p "Do you want to install Composer? (y/n): " INSTALL_COMPOSER
+read -p "Do you want to install Composer? (y/n, default: y): " INSTALL_COMPOSER
+INSTALL_COMPOSER=${INSTALL_COMPOSER:-y}  # Default to 'y' if no input
 if [[ "$INSTALL_COMPOSER" =~ ^[yY]$ ]]; then
     echo_msg "Installing Composer..."
     php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
@@ -268,6 +271,5 @@ if [[ "$INSTALL_COMPOSER" =~ ^[yY]$ ]]; then
     sudo mv composer.phar /usr/local/bin/composer
     sudo chmod +x /usr/local/bin/composer
 fi
-
 
 echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
