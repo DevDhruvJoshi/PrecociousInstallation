@@ -17,7 +17,7 @@ function echo_error() {
 function validate_domain() {
     local domain="$1"
     if [[ ! "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-        echo "Invalid domain name. Please enter a valid domain (e.g., dhruvjoshi.dev)."
+        echo_error "Invalid domain name. Please enter a valid domain (e.g., example.com)."
         return 1
     fi
     return 0
@@ -42,8 +42,8 @@ function check_dns() {
 
 # Prompt for domain name
 while true; do
-    read -p "Enter your domain name (default: app.dhruvjoshi.dev): " DOMAIN
-    DOMAIN=${DOMAIN:-app.dhruvjoshi.dev}
+    read -p "Enter your domain name (default: app.example.com): " DOMAIN
+    DOMAIN=${DOMAIN:-app.example.com}
 
     if validate_domain "$DOMAIN"; then
         break
@@ -53,95 +53,118 @@ done
 # Check if the domain points to this server's IP
 check_dns "$DOMAIN"
 
+# Determine package manager
+if command -v apt &> /dev/null; then
+    PACKAGE_MANAGER="apt"
+elif command -v yum &> /dev/null; then
+    PACKAGE_MANAGER="yum"
+elif command -v dnf &> /dev/null; then
+    PACKAGE_MANAGER="dnf"
+else
+    echo_error "No supported package manager found (apt, yum, dnf). Exiting."
+    exit 1
+fi
+
 # Check if it's a new server
 read -p "Is this a new server setup? (y/n): " NEW_SERVER
 
 if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
-    # Update and upgrade the package list
-    echo_msg "Updating and upgrading packages..."
-    sudo apt update -y && sudo apt upgrade -y
+    echo_msg "Updating package list..."
+    sudo $PACKAGE_MANAGER update -y
 
     # Install Apache
     echo_msg "Installing Apache..."
-    sudo apt install apache2 -y
-    sudo systemctl start apache2
-    sudo systemctl enable apache2
-    sudo ufw allow 'Apache Full'
+    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+        sudo apt install apache2 -y
+        sudo systemctl start apache2
+        sudo systemctl enable apache2
+        sudo ufw allow 'Apache Full'
+    else
+        sudo yum install httpd -y
+        sudo systemctl start httpd
+        sudo systemctl enable httpd
+    fi
 
     # Install PHP and required extensions
-    echo_msg "Adding PHP repository..."
-    sudo add-apt-repository ppa:ondrej/php -y
-    sudo apt update -y
-
     echo_msg "Installing PHP and extensions..."
-    sudo apt install -y php libapache2-mod-php php-mysql php-fpm \
-    php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+        sudo add-apt-repository ppa:ondrej/php -y
+        sudo apt update -y
+        sudo apt install -y php libapache2-mod-php php-mysql php-fpm \
+        php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+    else
+        sudo yum install php php-mysqlnd php-fpm php-curl php-gd php-mbstring php-xml php-zip php-bcmath -y
+    fi
 
-    echo_msg "Enabling PHP module and configuration..."
-    sudo a2enmod php8.3
-    sudo a2enconf php8.3-fpm
-
-    # Check Apache configuration
-    echo_msg "Checking Apache configuration..."
-    sudo apache2ctl configtest
+    # Enable PHP module and configuration
+    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+        sudo a2enmod php8.3
+        sudo a2enconf php8.3-fpm
+    fi
 
     # Restart Apache to apply changes
     echo_msg "Restarting Apache..."
-    sudo systemctl restart apache2
+    sudo systemctl restart apache2 || sudo systemctl restart httpd
 
     # Install MySQL server
     echo_msg "Installing MySQL server..."
-    sudo apt install mysql-server -y
+    sudo $PACKAGE_MANAGER install mysql-server -y
     echo_msg "Please run 'mysql_secure_installation' manually to secure your MySQL installation."
 
     # Enable Apache rewrite module
     echo_msg "Enabling Apache rewrite module..."
-    sudo a2enmod rewrite
-    sudo systemctl restart apache2
+    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+        sudo a2enmod rewrite
+    fi
+    sudo systemctl restart apache2 || sudo systemctl restart httpd
 
 else
     # Step by step installation
     read -p "Do you want to install Apache? (y/n): " INSTALL_APACHE
     if [[ "$INSTALL_APACHE" =~ ^[yY]$ ]]; then
         echo_msg "Installing Apache..."
-        sudo apt install apache2 -y
-        sudo systemctl start apache2
-        sudo systemctl enable apache2
-        sudo ufw allow 'Apache Full'
+        if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+            sudo apt install apache2 -y
+            sudo systemctl start apache2
+            sudo systemctl enable apache2
+            sudo ufw allow 'Apache Full'
+        else
+            sudo yum install httpd -y
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+        fi
     fi
 
     read -p "Do you want to install PHP and its extensions? (y/n): " INSTALL_PHP
     if [[ "$INSTALL_PHP" =~ ^[yY]$ ]]; then
-        echo_msg "Adding PHP repository..."
-        sudo add-apt-repository ppa:ondrej/php -y
-        sudo apt update -y
-
         echo_msg "Installing PHP and extensions..."
-        sudo apt install -y php libapache2-mod-php php-mysql php-fpm \
-        php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
-
-        echo_msg "Enabling PHP module and configuration..."
-        sudo a2enmod php8.3
-        sudo a2enconf php8.3-fpm
-
-        echo_msg "Checking Apache configuration..."
-        sudo apache2ctl configtest
-
+        if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+            sudo add-apt-repository ppa:ondrej/php -y
+            sudo apt update -y
+            sudo apt install -y php libapache2-mod-php php-mysql php-fpm \
+            php-curl php-gd php-mbstring php-xml php-zip php-bcmath php-json
+            sudo a2enmod php8.3
+            sudo a2enconf php8.3-fpm
+        else
+            sudo yum install php php-mysqlnd php-fpm php-curl php-gd php-mbstring php-xml php-zip php-bcmath -y
+        fi
         echo_msg "Restarting Apache..."
-        sudo systemctl restart apache2
+        sudo systemctl restart apache2 || sudo systemctl restart httpd
     fi
 
     read -p "Do you want to install MySQL server? (y/n): " INSTALL_MYSQL
     if [[ "$INSTALL_MYSQL" =~ ^[yY]$ ]]; then
         echo_msg "Installing MySQL server..."
-        sudo apt install mysql-server -y
+        sudo $PACKAGE_MANAGER install mysql-server -y
         echo_msg "Please run 'mysql_secure_installation' manually to secure your MySQL installation."
     fi
 
     # Enable Apache rewrite module
     echo_msg "Enabling Apache rewrite module..."
-    sudo a2enmod rewrite
-    sudo systemctl restart apache2
+    if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+        sudo a2enmod rewrite
+    fi
+    sudo systemctl restart apache2 || sudo systemctl restart httpd
 fi
 
 # Create directories for virtual hosts
@@ -164,11 +187,16 @@ EOF
 
 # Enable the new virtual host configurations
 echo_msg "Enabling virtual host configurations..."
-sudo a2ensite $DOMAIN.conf
+if [[ "$PACKAGE_MANAGER" == "apt" ]]; then
+    sudo a2ensite $DOMAIN.conf
+else
+    # For other package managers, Apache should pick up the new configuration automatically
+    echo_msg "Ensure to manually include your virtual host configuration in your Apache config."
+fi
 
 # Restart Apache to apply new configurations
 echo_msg "Restarting Apache to apply new configurations..."
-sudo systemctl restart apache2
+sudo systemctl restart apache2 || sudo systemctl restart httpd
 
 # Create index.php files for each site
 echo_msg "Creating index.php files..."
@@ -176,22 +204,6 @@ echo "<?php echo 'This is the $DOMAIN subdomain.'; ?>" | sudo tee /var/www/$DOMA
 
 # Set ownership for the web directories
 echo_msg "Setting ownership for the web directories..."
-sudo chown -R www-data:www-data /var/www/$DOMAIN
+sudo chown -R www-data:www-data /var/www/$DOMAIN || sudo chown -R apache:apache /var/www/$DOMAIN
 
-# Install Composer
-if [[ "$INSTALL_COMPOSER" =~ ^[yY]$ ]]; then
-    echo_msg "Installing Composer..."
-    if command -v apt &> /dev/null; then
-        sudo apt install composer -y
-    elif command -v yum &> /dev/null; then
-        sudo yum install epel-release -y
-        sudo yum install composer -y
-    elif command -v dnf &> /dev/null; then
-        sudo dnf install composer -y
-    else
-        # Fallback to manual installation if package manager is not recognized
-        curl -sS https://getcomposer.org/installer -o composer-setup.php
-        ...
-    fi
-fi
 echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
