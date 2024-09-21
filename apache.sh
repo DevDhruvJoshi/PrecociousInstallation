@@ -205,9 +205,29 @@ function fetch_branches() {
 # Clone the selected branch from the Git repository
 function clone_repository() {
     local selected_branch="$1"
-    echo_msg "Cloning the Git repository into /var/www/$DOMAIN from branch '$selected_branch'..."
-    git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git /var/www/$DOMAIN
+    local target_dir="/var/www/$DOMAIN"
+    
+    if [ -d "$target_dir" ]; then
+        echo_msg "Directory $target_dir already exists."
+        read -p "Do you want to delete it and continue? (y/n): " choice
+        
+        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            echo_msg "Deleting the existing directory..."
+            sudo rm -rf "$target_dir"
+            echo_msg "Cloning the Git repository into $target_dir from branch '$selected_branch'..."
+            git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git "$target_dir"
+        else
+            echo_msg "Updating the existing repository..."
+            cd "$target_dir" || exit
+            git checkout "$selected_branch"
+            git pull origin "$selected_branch"
+        fi
+    else
+        echo_msg "Cloning the Git repository into $target_dir from branch '$selected_branch'..."
+        git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git "$target_dir"
+    fi
 }
+
 
 # Set ownership for web directories
 function set_ownership() {
