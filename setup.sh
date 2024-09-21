@@ -179,15 +179,19 @@ echo_msg "Setting ownership for the web directories..."
 sudo chown -R www-data:www-data /var/www/$DOMAIN
 
 # Install Composer
-read -p "Do you want to install Composer? (y/n): " INSTALL_COMPOSER
 if [[ "$INSTALL_COMPOSER" =~ ^[yY]$ ]]; then
     echo_msg "Installing Composer..."
-    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-    php -r "if (hash_file('sha384', 'composer-setup.php') === 'c3f3cbe12c3c5f5cf2c4b39a37785c9ec12e1670d46d4a7e9e27ef85d5eb5459ee0b68cf421d9b54df5be8dd67a9188d') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
-    php composer-setup.php
-    php -r "unlink('composer-setup.php');"
-    sudo mv composer.phar /usr/local/bin/composer
-    sudo chmod +x /usr/local/bin/composer
+    if command -v apt &> /dev/null; then
+        sudo apt install composer -y
+    elif command -v yum &> /dev/null; then
+        sudo yum install epel-release -y
+        sudo yum install composer -y
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install composer -y
+    else
+        # Fallback to manual installation if package manager is not recognized
+        curl -sS https://getcomposer.org/installer -o composer-setup.php
+        ...
+    fi
 fi
-
 echo_msg "Setup complete! Please remember to run 'mysql_secure_installation' manually."
