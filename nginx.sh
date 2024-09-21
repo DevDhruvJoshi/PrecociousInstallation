@@ -82,15 +82,11 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     echo_msg "Updating and upgrading packages..."
     eval $UPDATE_CMD
 
-    # Check if Nginx is installed
-    if ! command -v nginx &> /dev/null; then
-        echo_msg "Installing Nginx..."
-        eval $INSTALL_CMD nginx
-        sudo systemctl start nginx
-        sudo systemctl enable nginx
-    else
-        echo_msg "Nginx is already installed."
-    fi
+    # Install Nginx
+    echo_msg "Installing Nginx..."
+    eval $INSTALL_CMD nginx
+    sudo systemctl start nginx
+    sudo systemctl enable nginx
 
     # Install PHP and required extensions
     echo_msg "Installing PHP and extensions..."
@@ -106,10 +102,12 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
 
     # Restart Nginx to apply changes
     echo_msg "Restarting Nginx..."
-    if ! eval $RESTART_CMD nginx; then
+    if ! sudo systemctl restart nginx; then
         echo_error "Failed to restart Nginx. Checking logs for details..."
-        echo "Check the status with: systemctl status nginx.service"
-        echo "View logs with: journalctl -xeu nginx.service"
+        echo "Nginx status:"
+        systemctl status nginx.service
+        echo "Nginx logs:"
+        journalctl -xeu nginx.service
         exit 1
     fi
 
@@ -122,14 +120,10 @@ else
     # Step by step installation
     read -p "Do you want to install Nginx? (y/n): " INSTALL_NGINX
     if [[ "$INSTALL_NGINX" =~ ^[yY]$ ]]; then
-        if ! command -v nginx &> /dev/null; then
-            echo_msg "Installing Nginx..."
-            eval $INSTALL_CMD nginx
-            sudo systemctl start nginx
-            sudo systemctl enable nginx
-        else
-            echo_msg "Nginx is already installed."
-        fi
+        echo_msg "Installing Nginx..."
+        eval $INSTALL_CMD nginx
+        sudo systemctl start nginx
+        sudo systemctl enable nginx
     fi
 
     read -p "Do you want to install PHP and its extensions? (y/n): " INSTALL_PHP
@@ -145,10 +139,12 @@ else
         sudo nginx -t
 
         echo_msg "Restarting Nginx..."
-        if ! eval $RESTART_CMD nginx; then
+        if ! sudo systemctl restart nginx; then
             echo_error "Failed to restart Nginx. Checking logs for details..."
-            echo "Check the status with: systemctl status nginx.service"
-            echo "View logs with: journalctl -xeu nginx.service"
+            echo "Nginx status:"
+            systemctl status nginx.service
+            echo "Nginx logs:"
+            journalctl -xeu nginx.service
             exit 1
         fi
     fi
@@ -198,10 +194,12 @@ sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 
 # Restart Nginx to apply new configurations
 echo_msg "Restarting Nginx to apply new configurations..."
-if ! eval $RESTART_CMD nginx; then
+if ! sudo systemctl restart nginx; then
     echo_error "Failed to restart Nginx. Checking logs for details..."
-    echo "Check the status with: systemctl status nginx.service"
-    echo "View logs with: journalctl -xeu nginx.service"
+    echo "Nginx status:"
+    systemctl status nginx.service
+    echo "Nginx logs:"
+    journalctl -xeu nginx.service
     exit 1
 fi
 
