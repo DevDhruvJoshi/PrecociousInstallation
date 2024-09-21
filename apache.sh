@@ -209,24 +209,25 @@ function clone_repository() {
     
     if [ -d "$target_dir" ]; then
         echo_msg "Directory $target_dir already exists."
-        read -p "Do you want to delete it and continue? (y/n): " choice
-        
+        read -p "Do you want to delete it and continue? (y/n, default is y): " choice
+        choice=${choice:-y}  # Default to 'y' if no input is given
+
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             echo_msg "Deleting the existing directory..."
             sudo rm -rf "$target_dir"
-            echo_msg "Cloning the Git repository into $target_dir from branch '$selected_branch'..."
-            git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git "$target_dir"
         else
             echo_msg "Updating the existing repository..."
             cd "$target_dir" || exit
             git checkout "$selected_branch"
             git pull origin "$selected_branch"
+            return
         fi
-    else
-        echo_msg "Cloning the Git repository into $target_dir from branch '$selected_branch'..."
-        git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git "$target_dir"
     fi
+
+    echo_msg "Cloning the Git repository into $target_dir from branch '$selected_branch'..."
+    git clone --branch "$selected_branch" https://github.com/DevDhruvJoshi/Precocious.git "$target_dir"
 }
+
 
 
 # Set ownership for web directories
