@@ -158,16 +158,17 @@ EOF
 
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             echo_msg "Deleting the existing symbolic link..."
+            # Enable the Nginx configuration
             sudo rm /etc/nginx/sites-enabled/$DOMAIN
+            echo_msg "Enabling Nginx configuration..."
+            sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
         else
             echo_msg "Skipping the creation of the symbolic link."
             return
         fi
     fi
 
-    # Enable the Nginx configuration
-    echo_msg "Enabling Nginx configuration..."
-    sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
+    
 
     echo_msg "Testing Nginx configuration..."
     sudo nginx -t || {
