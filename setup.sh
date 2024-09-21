@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# Check if apache.sh exists and remove it if it does
+if [ -f "apache.sh" ]; then
+    echo "Removing existing apache.sh..."
+    sudo rm apache.sh
+fi
+
+# Check if apache.sh exists and remove it if it does
+if [ -f "nginx.sh" ]; then
+    echo "Removing existing apache.sh..."
+    sudo rm apache.sh
+fi
+
+
 echo "Which server would you like to install?"
 echo "1. Apache"
 echo "2. Nginx"
