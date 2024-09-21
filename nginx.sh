@@ -82,11 +82,15 @@ if [[ "$NEW_SERVER" =~ ^[yY]$ ]]; then
     echo_msg "Updating and upgrading packages..."
     eval $UPDATE_CMD
 
-    # Install Nginx
-    echo_msg "Installing Nginx..."
-    eval $INSTALL_CMD nginx
-    sudo systemctl start nginx
-    sudo systemctl enable nginx
+    # Check if Nginx is installed
+    if ! command -v nginx &> /dev/null; then
+        echo_msg "Installing Nginx..."
+        eval $INSTALL_CMD nginx
+        sudo systemctl start nginx
+        sudo systemctl enable nginx
+    else
+        echo_msg "Nginx is already installed."
+    fi
 
     # Install PHP and required extensions
     echo_msg "Installing PHP and extensions..."
@@ -113,10 +117,14 @@ else
     # Step by step installation
     read -p "Do you want to install Nginx? (y/n): " INSTALL_NGINX
     if [[ "$INSTALL_NGINX" =~ ^[yY]$ ]]; then
-        echo_msg "Installing Nginx..."
-        eval $INSTALL_CMD nginx
-        sudo systemctl start nginx
-        sudo systemctl enable nginx
+        if ! command -v nginx &> /dev/null; then
+            echo_msg "Installing Nginx..."
+            eval $INSTALL_CMD nginx
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+        else
+            echo_msg "Nginx is already installed."
+        fi
     fi
 
     read -p "Do you want to install PHP and its extensions? (y/n): " INSTALL_PHP
