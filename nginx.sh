@@ -162,6 +162,11 @@ EOF
             sudo rm /etc/nginx/sites-enabled/$DOMAIN
             echo_msg "Enabling Nginx configuration..."
             sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
+            echo_msg "Testing Nginx configuration..."
+            sudo nginx -t || {
+                echo_msg "Nginx configuration test failed. Please check the configuration."
+                return
+            }
         else
             echo_msg "Skipping the creation of the symbolic link."
             return
@@ -169,12 +174,6 @@ EOF
     fi
 
     
-
-    echo_msg "Testing Nginx configuration..."
-    sudo nginx -t || {
-        echo_msg "Nginx configuration test failed. Please check the configuration."
-        return
-    }
 
     # Start Nginx if it's not running
     if ! systemctl is-active --quiet nginx; then
