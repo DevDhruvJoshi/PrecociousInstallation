@@ -150,7 +150,7 @@ server {
 }
 EOF
 
-    # Check if the symbolic link already exists
+# Check if the symbolic link already exists
     if [ -L "/etc/nginx/sites-enabled/$DOMAIN" ]; then
         echo_msg "The symbolic link /etc/nginx/sites-enabled/$DOMAIN already exists."
         read -p "Do you want to delete it and continue? (y/n, default is y): " choice
@@ -165,11 +165,15 @@ EOF
         fi
     fi
 
+    # Enable the Nginx configuration
     echo_msg "Enabling Nginx configuration..."
     sudo ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/
 
     echo_msg "Testing Nginx configuration..."
-    sudo nginx -t
+    sudo nginx -t || {
+        echo_msg "Nginx configuration test failed. Please check the configuration."
+        return
+    }
 
     # Start Nginx if it's not running
     if ! systemctl is-active --quiet nginx; then
@@ -180,7 +184,6 @@ EOF
     echo_msg "Reloading Nginx service..."
     sudo systemctl reload nginx
 }
-
 
 # Fetch available Git branches
 function fetch_branches() {
