@@ -8,8 +8,8 @@ fi
 
 # Check if apache.sh exists and remove it if it does
 if [ -f "nginx.sh" ]; then
-    echo "Removing existing apache.sh..."
-    sudo rm apache.sh
+    echo "Removing existing nginx.sh..."
+    sudo rm nginx.sh
 fi
 
 
