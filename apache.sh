@@ -17,7 +17,7 @@ function echo_error() {
 function validate_domain() {
     local domain="$1"
     if [[ ! "$domain" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-        echo_error "Invalid domain name. Please enter a valid domain (e.g., example.com)."
+        echo_error "Invalid domain name. Please enter a valid domain (e.g., dhruvjoshi.dev)."
         return 1
     fi
     return 0
@@ -53,8 +53,8 @@ function install_git() {
 
 # Prompt for domain name
 while true; do
-    read -p "Enter your domain name (default: app.example.com): " DOMAIN
-    DOMAIN=${DOMAIN:-app.example.com}
+    read -p "Enter your domain name (default: dhruvjoshi.dev): " DOMAIN
+    DOMAIN=${DOMAIN:-dhruvjoshi.dev}
 
     if validate_domain "$DOMAIN"; then
         break
