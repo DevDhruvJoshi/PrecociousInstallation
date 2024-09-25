@@ -179,8 +179,8 @@ function create_virtual_host_config() {
 <VirtualHost *:80>
     ServerName $DOMAIN
     ServerAlias *.$DOMAIN
-    DocumentRoot /var/www/$DOMAIN
-    <Directory /var/www/$DOMAIN>
+    DocumentRoot /var/www/$DOMAIN/Public/
+    <Directory /var/www/$DOMAIN/Public>
         AllowOverride All
         Require all granted
     </Directory>
