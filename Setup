@@ -195,8 +195,8 @@ cat <<EOF | sudo tee /etc/apache2/sites-available/$DOMAIN.conf
 <VirtualHost *:80>
     ServerName $DOMAIN
     ServerAlias *.$DOMAIN
-    DocumentRoot /var/www/$DOMAIN
-    <Directory /var/www/$DOMAIN>
+    DocumentRoot /var/www/$DOMAIN/Public/
+    <Directory /var/www/$DOMAIN/Public/>
         AllowOverride All
         Require all granted
     </Directory>
